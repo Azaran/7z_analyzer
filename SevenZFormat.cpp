@@ -330,16 +330,17 @@ void SevenZFormat::readInitInfo(ifstream *stream){
     data4Cracking(stream);
 } 
 
-void SevenZFormat::init(ifstream& stream){ 
+ifstream& SevenZFormat::getStream() {
+    return archive;
+}
 
-    char buffer[6];
-    data.keyLength = 256;	// there is no other option 
-    readInitInfo(&stream);
+void SevenZFormat::process(){
+    readInitInfo(&archive);
+}
 
-    if (verbose)
-	printInfo();
-    stream.close();
-    is_supported = true;
+void SevenZFormat::finish(){
+    printInfo();
+    archive.close();
 }
 
 void SevenZFormat::printInfo(){
@@ -374,6 +375,7 @@ string uint8ToHex(uint8_t a) {
     ss << HEX(a);
     return ss.str();
 }
+
 string uint8ToStr(uint8_t a) {
     
     stringstream ss;
@@ -384,12 +386,219 @@ string uint8ToStr(uint8_t a) {
 string printArray(uint8_t *array, uint8_t size) {
     string s;
     for (int i = 0; i < size; i++)
-	s += ", " + uint8ToHex(array[i]) ;	
+	s += " " + uint8ToHex(array[i]) ;	
     return s;
 }
 
 string SevenZCoder::coderToString(uint8_t *array, uint8_t size) {
-    return (printArray(array,size) + " size: " + uint8ToStr(size));
+    if (size == 1) {
+	switch(array[0]) {
+	    case 0x00: return "Copy";
+	    case 0x03: return "BCJ (x86)";
+	    case 0x04: return "PPC (big-endian)";
+	    case 0x05: return "IA64";
+	    case 0x06: return "ARM (little-endian)";
+	    case 0x07: return "ARMT (little-endian)";
+	    case 0x09: return "SPARC";
+	    case 0x21: return "LZMA2";
+	    default: return "Unknown coder";
+	}
+
+    } else if (size == 2) {
+	if (array[0] == 0x03) {
+	    if (array[1] == 0x00) {
+		return "Reserved";
+	    } else
+		return "Unknown method";
+	} else
+	    return "Unknown method";
+    } else if (size == 3) {
+	switch(array[0]) {
+	    case 0x02:		//common
+		if (array[1] == 0x03) {
+		    if (array[2] == 0x02)
+			return "Swap2";
+		    else if (array[2] == 0x04)
+			return "Swap4";
+		    else
+			return "Unknown method";
+		} else
+		    return "Unknown method";
+	    case 0x03:		// 7z
+		switch(array[1]) {
+		    case 0x01:
+			if (array[2] == 0x01)
+			    return "LZMA";
+			else
+			    return "Unknown method";
+		    // case 0x03:	    // at size == 4
+		    case 0x04:
+			if (array[2] == 0x01)
+			    return "PPMD";
+			else
+			    return "Unknown method";
+		    case 0x7F:
+			if (array[2] == 0x01)
+			    return "Experimental method";
+			else
+			    return "Unknown method";
+		} break;
+	    case 0x04:		// Misc codecs
+		switch(array[1]) {
+		    // case 0x00:		    // at size == 2
+		    case 0x01:
+			switch(array[2]) {
+			    case 0x00: return "Copy";
+			    case 0x01: return "Shrink";
+			    case 0x06: return "Implode";
+			    case 0x08: return "Deflate";
+			    case 0x09: return "Deflate64";
+			    case 0x0A: return "Imploding";
+			    case 0x0C: return "BZip2";
+			    case 0x0E: return "LZMA (LZMA-zip)";
+			    case 0x5F: return "xz";
+			    case 0x60: return "Jpeg";
+			    case 0x61: return "WavPack";
+			    case 0x62: return "PPMd (PPMd-zip)";
+			    case 0x63: return "wzAES";
+			    default: return "Unknown method";
+			}
+		    case 0x02:
+			if (array[2] == 0x02)
+			    return "BZip2";
+			else
+			    return "Unknown method";
+		    case 0x03:
+			switch(array[2]) {
+			    case 0x01: return "Rar1";
+			    case 0x02: return "Rar2";
+			    case 0x03: return "Rar3";
+			    case 0x05: return "Rar5";
+			    default: return "Unknown method";
+			}
+		    case 0x04:
+			switch(array[2]) {
+			    case 0x01: return "Arj(1,2,3)";
+			    case 0x02: return "Arj4";
+			    default: return "Unknown method";
+			}
+		    // case 0x05:	    // at size == 2
+		    // case 0x06:	    // at size == 2
+		    // case 0x07:	    // at size == 2
+		    // case 0x08:	    // at size == 2
+		    case 0x09:
+			switch(array[2]) {
+			    case 0x01: return "DeflateNSIS";
+			    case 0x02: return "BZip2NSIS";
+			    default: return "Unknown method";
+			}
+		    // case 0xF7:		    // at size == 4
+		}
+	}
+    } else if (size == 4) {
+	switch(array[0]) {
+	    case 0x03:
+		if (array[1] == 0x03) {
+		    switch(array[2]) {
+			case 0x01: 
+			    if (array[3] == 0x03)
+				return "BCJ";
+			    else if (array[3] == 0x1B)
+				return "BCJ2 (4 packed streams)";
+			    else
+				return "Unknown method";
+			case 0x02:
+			    if (array[3] == 0x05)
+				return "PPC (big-endian)";
+			    else
+				return "Unknown method";
+			case 0x03:
+			    if (array[3] == 0x01)
+				return "Alpha";
+			    else
+				return "Unknown method";
+			case 0x04:
+			    if (array[3] == 0x01)
+				return "IA64";
+			    else
+				return "Unknown method";
+			case 0x05:
+			    if (array[3] == 0x01)
+				return "ARM (little-endian)";
+			    else
+				return "Unknown method";
+			case 0x06:
+			    if (array[3] == 0x05)
+				return "M68 (big-endian)";
+			    else
+				return "Unknown method";
+			case 0x07:
+			    if (array[3] == 0x01)
+				return "ARMT (little-endian)";
+			    else
+				return "Unknown method";
+			case 0x08:
+			    if (array[3] == 0x05)
+				return "SPARC";
+			    else
+				return "Unknown method";
+			default: return "Unknown method";
+		    }
+		} else
+		    return "Unknown method";
+	    case 0x04:
+		if (array[1] == 0xF7) {
+		    switch(array[2]) {
+			case 0x10: return "LZHAM";
+			case 0x11:
+			       switch(array[3]) {
+				   case 0x01: return "ZSTD";
+				   case 0x02: return "BROTLI";
+				   case 0x04: return "LZ4";
+				   case 0x05: return "LZ5";
+				   case 0x06: return "LIZARD";
+				   default: return "Unknown method";
+			       }
+			default: return "Unknown method";
+		    }
+		}
+	    case 0x06:
+		if (array[1] == 0xF0 && array[2] == 0x01) {
+		    string ret = "";
+		    uint8_t mode = array[3] & 0x0f;
+		    uint8_t alg = (array[3] & 0xf0) >> 4;
+		    switch (alg) {
+			case 0x0: ret += "AES-128"; break;
+			case 0x4: ret += "AES-192"; break;
+			case 0x8: ret += "AES-256"; break;
+			case 0xC: ret += "AES"; break;
+			default: return "Unknown method";
+		    }
+		    switch (mode) {
+			case 0x0: ret += "ECB"; break;
+			case 0x1: ret += "CBC"; break;
+			case 0x2: ret += "CFB"; break;
+			case 0x3: ret += "OFB"; break;
+			case 0x4: ret += "CTR"; break;
+			default: return "Unknown method";
+		    }
+		    return ret;
+		} else if (array[1] == 0xF1) {
+		    if (array[2] == 0x01) {
+			return "ZipCrypto (Main Zip crypto algo)";
+		    } else if (array[2] == 0x03) {
+			return "Rar29AES (AES-128 + modified SHA-1)";
+		    } else if (array[2] == 0x07 && array[3] == 0x01) {
+			return "7zAES (AES-256 + SHA-256)";
+		    } else
+			return "Unknown method";
+		}
+	}
+    }
+}
+
+string SevenZCoder::printCoder(uint8_t *array, uint8_t size) {
+    return (printArray(array,size) + " " + coderToString(array,size));
 }
 
 string SevenZCoder::propertyToString(uint8_t *array, uint8_t size) {
@@ -397,10 +606,10 @@ string SevenZCoder::propertyToString(uint8_t *array, uint8_t size) {
 }
 
 void SevenZCoder::printInfo() {
-    cout << "Coder: " + coderToString(coderID, coderIDSize) << endl;
-    cout << "Flags: " << HEX(flags) << dec<< endl;
-    cout << "In streams: " << numInStreams << endl;
-    cout << "Out streams: " << numOutStreams << endl;
+    cout << "Method applied on data: " + printCoder(coderID, coderIDSize) << endl;
+//    cout << "Flags: " << HEX(flags) << dec<< endl;
+//    cout << "In streams: " << numInStreams << endl;
+//    cout << "Out streams: " << numOutStreams << endl;
     cout << "Property: " << propertyToString(property, propertySize) << endl; 
 }
 

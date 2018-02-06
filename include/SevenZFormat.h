@@ -88,6 +88,7 @@ struct SevenZCoder{
     uint8_t *property;
     void printInfo();
     string coderToString(uint8_t *coder, uint8_t size);
+    string printCoder(uint8_t *coder, uint8_t size);
     string propertyToString(uint8_t *coder, uint8_t size);
 };
 
@@ -146,7 +147,10 @@ public:
     SevenZFormat();
     SevenZFormat(const SevenZFormat& orig);
     ~SevenZFormat();
-    void init(std::ifstream& stream);
+//    void init(std::ifstream& stream);
+    std::ifstream& getStream(); 
+    void process();
+    void finish();
 
 protected:
     /**
@@ -227,6 +231,7 @@ protected:
 private:
     SevenZInitData data;
     uint64_t codersInEncHdr;
+    std::ifstream archive;
 
 };
 

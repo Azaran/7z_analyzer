@@ -33,16 +33,15 @@ int CheckParameters(int argc, char *argv[], std::ifstream& in){
 
 int main (int argc, char *argv[]) {
     
-    std::ifstream in;
+    SevenZFormat archive;
 
-    if (CheckParameters(argc, argv, in) > 0){
+    if (CheckParameters(argc, argv, archive.getStream()) > 0){
 	return 1;
     }
 
-    SevenZFormat archive;
-    archive.init(in);
+    archive.process();
+    archive.finish();
 
-    in.close();
     return 0;
 
 }
